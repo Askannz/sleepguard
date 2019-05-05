@@ -2,9 +2,8 @@
 import sys
 import subprocess
 import datetime
-import time
-import sched
 import argparse
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 VERSION = 1.0
 
@@ -31,11 +30,11 @@ def main():
         event_times = _make_events(h, m, args.warnings_freq, args.nb_warnings)
         _print_events(event_times)
 
-        scheduler = sched.scheduler(time.time, time.sleep)
+        scheduler = BlockingScheduler()
 
         _schedule_events(scheduler, event_times, args.dry_run)
 
-        scheduler.run()
+        scheduler.start()
 
     else:
 
@@ -113,12 +112,10 @@ def _schedule_events(scheduler, event_times, is_dry_run):
 
         is_warning = (i < len(event_times) - 1)
 
-        delta_to_event = (event_times[i] - datetime.datetime.now()).total_seconds()
-
         if is_warning:
-            scheduler.enter(delta_to_event, 0, _do_warning, argument=(i, len(event_times), time_cutoff))
+            scheduler.add_job(_do_warning, 'date', run_date=event_times[i], args=(i, len(event_times), time_cutoff))
         else:
-            scheduler.enter(delta_to_event, 0, _do_shutdown, argument=(is_dry_run,))
+            scheduler.add_job(_do_shutdown, 'date', run_date=event_times[i], args=(is_dry_run,))
 
 
 def _do_warning(index, nb_events, time_cutoff):

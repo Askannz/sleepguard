@@ -2,7 +2,7 @@
 Description=Sleepguard
 
 [Service]
-ExecStart=/usr/bin/python -u /usr/bin/sleepguard -t 22:30 -n 2 -f 15
+ExecStart=/usr/bin/python -u /usr/bin/sleepguard -t 22:15 -n 2 -f 15
 
 [Install]
 WantedBy=multi-user.target

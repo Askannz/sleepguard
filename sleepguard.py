@@ -21,6 +21,7 @@ def main():
     parser.add_argument("-t", "--time", action='store')
     parser.add_argument("-n", "--nb-warnings", action='store', type=int, default=2)
     parser.add_argument("-f", "--warnings-freq", action='store', type=int, default=15)
+    parser.add_argument("--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -37,7 +38,7 @@ def main():
 
         scheduler = sched.scheduler(time.time, time.sleep)
 
-        _schedule_events(scheduler, event_times)
+        _schedule_events(scheduler, event_times, args.dry_run)
 
         scheduler.run()
 
@@ -109,7 +110,7 @@ def _send_message(message):
     subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
 
 
-def _schedule_events(scheduler, event_times):
+def _schedule_events(scheduler, event_times, is_dry_run):
 
     time_cutoff = event_times[-1]
 
@@ -122,7 +123,7 @@ def _schedule_events(scheduler, event_times):
         if is_warning:
             scheduler.enter(delta_to_event, 0, _do_warning, argument=(i, len(event_times), time_cutoff))
         else:
-            scheduler.enter(delta_to_event, 0, _do_shutdown)
+            scheduler.enter(delta_to_event, 0, _do_shutdown, argument=(is_dry_run,))
 
 
 def _do_warning(index, nb_events, time_cutoff):
@@ -137,12 +138,16 @@ def _do_warning(index, nb_events, time_cutoff):
     return message
 
 
-def _do_shutdown():
+def _do_shutdown(is_dry_run):
 
     message = "SHUTDOWN"
     print(message)
     notification(message)
-    subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
+
+    if is_dry_run:
+        print("Dry run : the poweroff command would be run here")
+    else:
+        subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
 
 
 if __name__ == '__main__':

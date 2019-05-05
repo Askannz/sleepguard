@@ -9,11 +9,6 @@ import argparse
 VERSION = 1.0
 
 
-def notification(message):
-    subprocess.run(["aplay", "bleep.wav"], stderr=subprocess.STDOUT)
-    subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
-
-
 def main():
 
     parser = argparse.ArgumentParser()
@@ -133,7 +128,7 @@ def _do_warning(index, nb_events, time_cutoff):
         message += "\nLAST WARNING !"
 
     print(message)
-    notification(message)
+    _notification(message)
 
     return message
 
@@ -142,12 +137,18 @@ def _do_shutdown(is_dry_run):
 
     message = "SHUTDOWN"
     print(message)
-    notification(message)
+    _notification(message)
 
     if is_dry_run:
         print("Dry run : the poweroff command would be run here")
     else:
         subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
+
+
+def _notification(message):
+
+    subprocess.run(["aplay", "bleep.wav"], stderr=subprocess.STDOUT)
+    subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
 
 
 if __name__ == '__main__':

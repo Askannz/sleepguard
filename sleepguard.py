@@ -3,6 +3,7 @@ import sys
 import subprocess
 import datetime
 import time
+import sched
 import argparse
 
 VERSION = 1.0
@@ -30,72 +31,118 @@ def main():
 
     elif args.time:
 
-        try:
+        h, m = _parse_time_arg(args.time)
+        event_times = _make_events(h, m, args.warnings_freq, args.nb_warnings)
+        _print_events(event_times)
 
-            time_str_items = args.time.split(":")
-            if len(time_str_items) != 2:
-                raise ValueError
+        scheduler = sched.scheduler(time.time, time.sleep)
 
-            h_str, m_str = time_str_items
+        _schedule_events(scheduler, event_times)
 
-            h, m = int(h_str), int(m_str)
-
-            if h < 0 or h >= 24 or m < 0 or m >= 60:
-                raise ValueError
-
-        except ValueError:
-            print("Invalid time argument %s" % args.time)
-            sys.exit(1)
-
-        time_now = datetime.datetime.now()
-        time_cutoff = time_now.replace(hour=h, minute=m, second=0, microsecond=0)
-
-        total_delta = time_cutoff - time_now
-
-        # In case current time and cutoff time are not in the same day
-        if total_delta.days < 0:
-            time_cutoff += datetime.timedelta(days=1)
-            total_delta = time_cutoff - time_now
-
-        warning_delta = datetime.timedelta(minutes=args.warnings_freq)
-        event_times = reversed([time_cutoff - i * warning_delta for i in range(args.nb_warnings+1)])
-
-        # Removing events that won't have time to happen
-        event_times = [ev_time for ev_time in event_times if (ev_time - datetime.datetime.now()).total_seconds() > 0]
-
-        print("Planned events :")
-        for i, ev_time in enumerate(event_times):
-            if i < len(event_times) - 1:
-                type_str = "WARNING"
-            else:
-                type_str = "SHUTDOWN"
-            print("%s at %s" % (type_str, ev_time.strftime("%H:%M")))
-        print("\n")
-
-        for i in range(len(event_times)):
-
-            delta_to_next_event = event_times[i] - datetime.datetime.now()
-            time.sleep(delta_to_next_event.total_seconds())
-
-            if i < len(event_times) - 1:
-                message = "Sleepguard warning %d of %d (SHUTDOWN AT %s)" % (i+1, args.nb_warnings, time_cutoff.strftime("%H:%M"))
-
-                if i == len(event_times) - 2:
-                    message += "\nLAST WARNING !"
-
-                print(message)
-                notification(message)
-
-            else:
-                message = "SHUTDOWN"
-                print(message)
-                notification(message)
-                subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
+        scheduler.run()
 
     else:
 
         print("Invalid arguments.")
         sys.exit(1)
+
+
+def _parse_time_arg(time_arg):
+
+    try:
+
+        time_str_items = time_arg.split(":")
+        if len(time_str_items) != 2:
+            raise ValueError
+
+        h_str, m_str = time_str_items
+
+        h, m = int(h_str), int(m_str)
+
+        if h < 0 or h >= 24 or m < 0 or m >= 60:
+            raise ValueError
+
+        return h, m
+
+    except ValueError:
+        print("Invalid time argument %s" % time_arg)
+        sys.exit(1)
+
+
+def _make_events(h, m, warnings_freq, nb_warnings):
+
+    time_now = datetime.datetime.now()
+    time_cutoff = time_now.replace(hour=h, minute=m, second=0, microsecond=0)
+
+    total_delta = time_cutoff - time_now
+
+    # In case current time and cutoff time are not in the same day
+    if total_delta.days < 0:
+        time_cutoff += datetime.timedelta(days=1)
+        total_delta = time_cutoff - time_now
+
+    warning_delta = datetime.timedelta(minutes=warnings_freq)
+    event_times = reversed([time_cutoff - i * warning_delta for i in range(nb_warnings+1)])
+
+    # Removing events that won't have time to happen
+    event_times = [ev_time for ev_time in event_times if (ev_time - datetime.datetime.now()).total_seconds() > 0]
+
+    return event_times
+
+
+def _print_events(event_times):
+
+    print("Planned events :")
+    for i, ev_time in enumerate(event_times):
+        if i < len(event_times) - 1:
+            type_str = "WARNING"
+        else:
+            type_str = "SHUTDOWN"
+        print("%s at %s" % (type_str, ev_time.strftime("%H:%M")))
+    print("\n")
+
+
+def _send_message(message):
+
+    print(message)
+    subprocess.run(["aplay", "bleep.wav"], stderr=subprocess.STDOUT)
+    subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
+
+
+def _schedule_events(scheduler, event_times):
+
+    time_cutoff = event_times[-1]
+
+    for i in range(len(event_times)):
+
+        is_warning = (i < len(event_times) - 1)
+
+        delta_to_event = (event_times[i] - datetime.datetime.now()).total_seconds()
+
+        if is_warning:
+            scheduler.enter(delta_to_event, 0, _do_warning, argument=(i, len(event_times), time_cutoff))
+        else:
+            scheduler.enter(delta_to_event, 0, _do_shutdown)
+
+
+def _do_warning(index, nb_events, time_cutoff):
+
+    message = "Sleepguard warning %d of %d (SHUTDOWN AT %s)" % (index+1, nb_events-1, time_cutoff.strftime("%H:%M"))
+    if index == nb_events - 2:
+        message += "\nLAST WARNING !"
+
+    print(message)
+    notification(message)
+
+    return message
+
+
+def _do_shutdown():
+
+    message = "SHUTDOWN"
+    print(message)
+    notification(message)
+    subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
 
 
 if __name__ == '__main__':

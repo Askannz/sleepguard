@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import os
 import subprocess
 import datetime
 import argparse
@@ -99,9 +100,13 @@ def _print_events(event_times):
 
 def _send_message(message):
 
+    current_folder_path = os.path.dirname(os.path.abspath(__file__))
+    soundfile_path = os.path.join(current_folder_path, "/usr/share/sleepguard/bleep.wav")
+    notify_script_path = os.path.join(current_folder_path, "/usr/share/sleepguard/notify-send-all")
+
     print(message)
-    subprocess.run(["aplay", "bleep.wav"], stderr=subprocess.STDOUT)
-    subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
+    subprocess.run(["aplay", soundfile_path], stderr=subprocess.STDOUT)
+    subprocess.run([notify_script_path, message], stderr=subprocess.STDOUT)
 
 
 def _schedule_events(scheduler, event_times, is_dry_run):

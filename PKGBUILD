@@ -23,6 +23,8 @@ package() {
   cd "${srcdir}"
  
   install -Dm644 sleepguard.service "$pkgdir/usr/lib/systemd/system/sleepguard.service"
+  install -Dm644 bleep.wav "$pkgdir/usr/share/sleepguard/bleep.wav"
+  install -Dm755 notify-send-all "$pkgdir/usr/share/sleepguard/notify-send-all"
  
   python setup.py install --root="$pkgdir/" --optimize=1 --skip-build
  

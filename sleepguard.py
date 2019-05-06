@@ -129,8 +129,7 @@ def _do_warning(index, nb_events, time_cutoff):
     if index == nb_events - 2:
         message += "\nLAST WARNING !"
 
-    print(message)
-    _notification(message)
+    _send_message(message)
 
     return message
 
@@ -138,19 +137,12 @@ def _do_warning(index, nb_events, time_cutoff):
 def _do_shutdown(is_dry_run):
 
     message = "SHUTDOWN"
-    print(message)
-    _notification(message)
+    _send_message(message)
 
     if is_dry_run:
         print("Dry run : the poweroff command would be run here")
     else:
         subprocess.run(["poweroff"], stderr=subprocess.STDOUT)
-
-
-def _notification(message):
-
-    subprocess.run(["aplay", "bleep.wav"], stderr=subprocess.STDOUT)
-    subprocess.run(["./notify-send-all", message], stderr=subprocess.STDOUT)
 
 
 if __name__ == '__main__':
